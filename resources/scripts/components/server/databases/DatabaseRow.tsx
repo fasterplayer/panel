@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDatabase, faEye, faTrashAlt } from '@fortawesome/free-solid-svg-icons';
+import { faBookOpen, faDatabase, faEye, faTrashAlt } from '@fortawesome/free-solid-svg-icons';
 import Modal from '@/components/elements/Modal';
 import { Form, Formik, FormikHelpers } from 'formik';
 import Field from '@/components/elements/Field';
@@ -19,6 +19,11 @@ import Label from '@/components/elements/Label';
 import Input from '@/components/elements/Input';
 import GreyRowBox from '@/components/elements/GreyRowBox';
 import CopyOnClick from '@/components/elements/CopyOnClick';
+import saveFileContents from '@/api/server/files/saveFileContents';
+import getFileContents from '@/api/server/files/getFileContents';
+import { Actions, useStoreActions } from 'easy-peasy';
+import { ApplicationStore } from '@/state';
+
 
 interface Props {
     database: ServerDatabase;
@@ -33,6 +38,29 @@ export default ({ database, className }: Props) => {
 
     const appendDatabase = ServerContext.useStoreActions((actions) => actions.databases.appendDatabase);
     const removeDatabase = ServerContext.useStoreActions((actions) => actions.databases.removeDatabase);
+    const eggId = ServerContext.useStoreState(state => state.server.data?.eggid);
+    const [ loading, setLoading ] = useState(false);
+    const { addFlash } = useStoreActions((actions: Actions<ApplicationStore>) => actions.flashes);
+    const addtocfg = () => {
+        setLoading(true);
+        getFileContents(uuid, 'server.cfg')
+            .then(data => {
+                const servercfgfile = data;
+                // console.log('SET: ' + servercfgfile);
+                const newcontent = servercfgfile + '\nset mysql_connection_string "server=' + database.connectionString + ';database=' + database.name + ';userid=' + database.username + ';password=' + database.password + '"';
+                saveFileContents(uuid, 'server.cfg', newcontent);
+                setLoading(false);
+                addFlash({
+                    key: 'databases',
+                    type: 'success',
+                    message: 'Sql line added to cfg. | Ligne Sql ajouté au cfg.',
+                });
+            })
+            .catch(error => {
+                console.error(error);
+                setVisible(false);
+            });
+    };
 
     const schema = object().shape({
         confirm: string()
@@ -175,6 +203,13 @@ export default ({ database, className }: Props) => {
                             <FontAwesomeIcon icon={faTrashAlt} fixedWidth />
                         </Button>
                     </Can>
+                    {[0,1].includes(eggId) &&
+                    <Can action={'database.view_password'}>
+                        <Button css={tw`mr-2`} isSecondary onClick={() => addtocfg()}>
+                            <FontAwesomeIcon icon={faBookOpen} fixedWidth/>
+                        </Button>
+                    </Can>
+                    }
                 </div>
             </GreyRowBox>
         </>
